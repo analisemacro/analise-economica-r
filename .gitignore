@@ -1,0 +1,32 @@
+# R
+.Rhistory
+.RData
+.Rapp.history
+.Ruserdata
+.Rproj.user/
+*.Rproj.user
+renv/library/
+renv/staging/
+
+# Quarto
+.quarto/
+*_files/
+*_cache/
+/.luarc.json
+
+# LaTeX (PDF do Quarto)
+*.aux
+*.log
+*.out
+*.toc
+*.tex
+
+# Sistema e editor
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.claude/
+
+# Gráfico automático do Rscript
+Rplots.pdf

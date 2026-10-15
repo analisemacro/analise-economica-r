@@ -1,0 +1,77 @@
+---
+title: "PIB per capita dos municípios — `r params$regiao`"
+lang: pt-BR
+params:
+  regiao: "Nordeste"
+format:
+  html:
+    embed-resources: true
+  pdf:
+    documentclass: article
+    geometry: margin=2.5cm
+execute:
+  echo: false
+  warning: false
+  message: false
+---
+
+```{r}
+#| label: dados
+library(dplyr)
+library(ggplot2)
+
+populacao <- read.csv("dados/populacao_censo2022.csv")
+pib       <- read.csv("dados/tabela5938.csv")
+
+# A base não traz a região, então ela vem da UF
+regioes <- data.frame(
+  uf = c("AC", "AP", "AM", "PA", "RO", "RR", "TO",
+         "AL", "BA", "CE", "MA", "PB", "PE", "PI", "RN", "SE",
+         "DF", "GO", "MT", "MS",
+         "ES", "MG", "RJ", "SP",
+         "PR", "RS", "SC"),
+  regiao = c(rep("Norte", 7), rep("Nordeste", 9), rep("Centro-Oeste", 4),
+             rep("Sudeste", 4), rep("Sul", 3))
+)
+
+municipios <- populacao |>
+  inner_join(select(pib, -municipio), by = c("codigo_municipio" = "cod_municipio")) |>
+  inner_join(regioes, by = "uf") |>
+  mutate(pib_pc = pib_mil_reais * 1000 / populacao)
+
+regiao <- filter(municipios, regiao == params$regiao)
+
+# PIB per capita da região: PIB total dividido pela população total
+pib_pc_regiao <- sum(regiao$pib_mil_reais) * 1000 / sum(regiao$populacao)
+pib_pc_brasil <- sum(municipios$pib_mil_reais) * 1000 / sum(municipios$populacao)
+
+mais_rico  <- slice_max(regiao, pib_pc, n = 1)
+mais_pobre <- slice_min(regiao, pib_pc, n = 1)
+abaixo_brasil <- mean(regiao$pib_pc < pib_pc_brasil)
+
+reais <- function(x) paste0("R$ ", format(round(x), big.mark = ".", decimal.mark = ",", scientific = FALSE))
+inteiro <- function(x) format(x, big.mark = ".", decimal.mark = ",", scientific = FALSE)
+pct <- function(x) paste0(format(round(100 * x, 1), decimal.mark = ","), "%")
+```
+
+## PIB por habitante na região
+
+A região `r params$regiao` reúne `r inteiro(nrow(regiao))` municípios e `r inteiro(sum(regiao$populacao))` habitantes. Somando o PIB de todos eles e dividindo pela população, o PIB per capita da região é de `r reais(pib_pc_regiao)`, o que equivale a `r pct(pib_pc_regiao / pib_pc_brasil)` do PIB per capita do Brasil, de `r reais(pib_pc_brasil)`. Entre os municípios, a mediana é de `r reais(median(regiao$pib_pc))`, e `r pct(abaixo_brasil)` deles ficam abaixo do valor nacional. O maior valor é o de `r mais_rico$municipio`, com `r reais(mais_rico$pib_pc)`, e o menor é o de `r mais_pobre$municipio`, com `r reais(mais_pobre$pib_pc)`, uma distância de `r inteiro(round(mais_rico$pib_pc / mais_pobre$pib_pc))` vezes.
+
+```{r}
+#| label: fig-histograma
+#| fig-cap: !expr paste0("Distribuição do PIB per capita dos municípios — ", params$regiao)
+#| fig-width: 8
+#| fig-height: 4.5
+ggplot(regiao, aes(x = pib_pc)) +
+  geom_histogram(bins = 40, fill = "#1f3b73", color = "white") +
+  geom_vline(xintercept = pib_pc_regiao, color = "#c0392b", linewidth = 0.9) +
+  geom_vline(xintercept = median(regiao$pib_pc), color = "#c0392b",
+             linetype = "dashed", linewidth = 0.9) +
+  scale_x_log10(labels = \(x) reais(x)) +
+  labs(
+    x = "PIB per capita (escala logarítmica)", y = "Número de municípios",
+    caption = "Linha contínua: PIB per capita da região. Tracejada: mediana dos municípios.\nFonte: IBGE, Censo 2022 e PIB dos Municípios 2023 (tabela 5938)."
+  ) +
+  theme_minimal()
+```
